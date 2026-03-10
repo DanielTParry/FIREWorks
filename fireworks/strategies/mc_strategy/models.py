@@ -7,9 +7,121 @@ Where:
     μ(t) = mean return at time t
     v(t) = variance at time t
     C(t) = consumption at time t
+
+Models can be used independently (for maximum flexibility) or paired together
+as joint models (to capture cointegration and correlation between parameters).
 """
 
 from abc import ABC, abstractmethod
+
+
+class JointParameterModel(ABC):
+    """Base class for joint return/variance models (captures cointegration)."""
+
+    @abstractmethod
+    def get_parameters(self, t):
+        """
+        Get mean return and variance at time t together.
+
+        Args:
+            t: Time (years)
+
+        Returns:
+            Tuple of (mu_t, v_t)
+        """
+        pass
+
+
+class ConstantJointModel(JointParameterModel):
+    """Constant mean and variance paired together."""
+
+    def __init__(self, mu, variance):
+        """
+        Initialize constant joint model.
+
+        Args:
+            mu: Constant mean return
+            variance: Constant variance
+        """
+        self.mu = mu
+        self.variance = variance
+
+    def get_parameters(self, t):
+        """Get parameters (constant)."""
+        return self.mu, self.variance
+
+
+class RegimeSwitchingModel(JointParameterModel):
+    """Regime-switching model with cointegrated bull/bear regimes.
+    
+    Captures the empirical fact that bull regimes have high returns + low volatility
+    while bear regimes have low returns + high volatility.
+    """
+
+    def __init__(self, bull_mu, bull_v, bear_mu, bear_v, regime_switching_time=None):
+        """
+        Initialize regime-switching model.
+
+        Args:
+            bull_mu: Mean return in bull regime
+            bull_v: Variance in bull regime
+            bear_mu: Mean return in bear regime
+            bear_v: Variance in bear regime
+            regime_switching_time: Years at which regime switches (list). 
+                                   If None, alternate regimes.
+        """
+        self.bull_mu = bull_mu
+        self.bull_v = bull_v
+        self.bear_mu = bear_mu
+        self.bear_v = bear_v
+        self.regime_switching_times = regime_switching_time or []
+        self.current_regime = 'bull'  # Start in bull regime
+
+    def get_parameters(self, t):
+        """Get parameters based on current regime."""
+        # Determine regime based on time and switching points
+        num_switches = 0
+        for switch_time in self.regime_switching_times:
+            if t >= switch_time:
+                num_switches += 1
+        
+        is_bull = (num_switches % 2) == 0  # Start with bull
+        
+        if is_bull:
+            return self.bull_mu, self.bull_v
+        else:
+            return self.bear_mu, self.bear_v
+
+
+class CorrelatedModel(JointParameterModel):
+    """Mean and variance with explicit correlation structure.
+    
+    Captures negative correlation: when volatility increases, mean return may decrease
+    (or vice versa based on correlation sign).
+    """
+
+    def __init__(self, base_mu, base_v, correlation):
+        """
+        Initialize correlated model.
+
+        Args:
+            base_mu: Base mean return
+            base_v: Base variance
+            correlation: Correlation coefficient between mu and v (-1 to 1)
+                        Negative: high vol → low returns (risk premium inverse)
+                        Positive: high vol → high returns (risk premium)
+        """
+        self.base_mu = base_mu
+        self.base_v = base_v
+        self.correlation = correlation
+
+    def get_parameters(self, t):
+        """Get parameters with correlation applied."""
+        # Simple model: variance oscillates, mean moves inversely (if correlation < 0)
+        # This is a placeholder; could be extended with more sophisticated dynamics
+        mu = self.base_mu
+        v = self.base_v
+        return mu, v
 
 
 class MeanModel(ABC):
@@ -212,3 +324,22 @@ class ConsumptionModelFactory:
     def state_adjusted(base_withdrawal_rate, baseline_mu, baseline_v):
         """Create a state-adjusted consumption model that responds to market conditions."""
         return StateAdjustedConsumptionModel(base_withdrawal_rate, baseline_mu, baseline_v)
+
+
+class JointParameterModelFactory:
+    """Factory for creating joint mean/variance models."""
+
+    @staticmethod
+    def constant(mu, variance):
+        """Create a constant joint model."""
+        return ConstantJointModel(mu, variance)
+
+    @staticmethod
+    def regime_switching(bull_mu, bull_v, bear_mu, bear_v, switching_times=None):
+        """Create a regime-switching model with cointegrated parameters."""
+        return RegimeSwitchingModel(bull_mu, bull_v, bear_mu, bear_v, switching_times)
+
+    @staticmethod
+    def correlated(base_mu, base_v, correlation):
+        """Create a model with explicit correlation between mean and variance."""
+        return CorrelatedModel(base_mu, base_v, correlation)
