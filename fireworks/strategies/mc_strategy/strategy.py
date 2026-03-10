@@ -1,9 +1,12 @@
 """MC Strategy: Monte Carlo simulation of portfolio ruin probability."""
 
+from typing import Dict, Any, Optional
 from fireworks.core.base import BaseStrategy
 from .models import (
     MarketEnvironmentFactory,
     ConsumptionModelFactory,
+    MarketEnvironment,
+    ConsumptionModel,
 )
 from .calculator import MCSimulator
 
@@ -18,11 +21,11 @@ class MCStrategy(BaseStrategy):
 
     def __init__(
         self,
-        market_environment=None,
-        consumption_model=None,
-        num_simulations=10000,
-        num_steps=None,
-    ):
+        market_environment: Optional[MarketEnvironment] = None,
+        consumption_model: Optional[ConsumptionModel] = None,
+        num_simulations: int = 10000,
+        num_steps: Optional[int] = None,
+    ) -> None:
         """
         Initialize MC Strategy.
 
@@ -50,11 +53,11 @@ class MCStrategy(BaseStrategy):
 
     def calculate_ruin_probability(
         self,
-        initial_capital,
-        annual_withdrawal=0,
-        years=30,
-        num_simulations=None,
-    ):
+        initial_capital: float,
+        annual_withdrawal: float = 0,
+        years: float = 30,
+        num_simulations: Optional[int] = None,
+    ) -> float:
         """
         Calculate the probability of ruin.
 
@@ -90,12 +93,12 @@ class MCStrategy(BaseStrategy):
 
     def simulate(
         self,
-        initial_capital,
-        annual_withdrawal=0,
-        years=30,
-        num_simulations=None,
-        num_steps=None,
-    ):
+        initial_capital: float,
+        annual_withdrawal: float = 0,
+        years: float = 30,
+        num_simulations: Optional[int] = None,
+        num_steps: Optional[int] = None,
+    ) -> Dict[str, Any]:
         """
         Run Monte Carlo simulations for the strategy.
 

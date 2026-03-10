@@ -7,13 +7,15 @@ Using Euler-Maruyama discretization:
     P_{t+Δt} = P_t + (P_t * μ(t) - C(t)) * Δt + P_t * √(v(t)) * √(Δt) * Z_t
 """
 
+from typing import Dict, Any
 import numpy as np
 
 
 class MCSimulator:
     """Monte Carlo simulator for portfolio dynamics."""
 
-    def __init__(self, market_environment, consumption_model):
+    def __init__(self, market_environment: 'MarketEnvironment', 
+                 consumption_model: 'ConsumptionModel') -> None:
         """
         Initialize the simulator.
 
@@ -24,7 +26,8 @@ class MCSimulator:
         self.market_environment = market_environment
         self.consumption_model = consumption_model
 
-    def simulate(self, initial_capital, years, num_simulations, num_steps=None):
+    def simulate(self, initial_capital: float, years: float, num_simulations: int, 
+                 num_steps: int = None) -> Dict[str, Any]:
         """
         Run Monte Carlo simulations of portfolio dynamics.
 
@@ -90,7 +93,7 @@ class MCSimulator:
             'time_grid': time_grid,
         }
 
-    def compute_ruin_probability(self, simulation_results):
+    def compute_ruin_probability(self, simulation_results: Dict[str, Any]) -> float:
         """
         Compute probability of ruin from simulation results.
 
@@ -105,7 +108,7 @@ class MCSimulator:
         num_ruined = np.sum(ruin_steps >= 0)
         return num_ruined / num_paths if num_paths > 0 else 0.0
 
-    def compute_statistics(self, simulation_results):
+    def compute_statistics(self, simulation_results: Dict[str, Any]) -> Dict[str, Any]:
         """
         Compute various statistics from simulation results.
 

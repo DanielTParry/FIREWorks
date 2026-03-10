@@ -11,13 +11,14 @@ Where:
 """
 
 from abc import ABC, abstractmethod
+from typing import Optional
 
 
 class MarketEnvironment(ABC):
     """Base class for market environments defining mean return and variance."""
 
     @abstractmethod
-    def get_mean(self, t):
+    def get_mean(self, t: float) -> float:
         """
         Get the mean return at time t.
 
@@ -30,7 +31,7 @@ class MarketEnvironment(ABC):
         pass
 
     @abstractmethod
-    def get_variance(self, t):
+    def get_variance(self, t: float) -> float:
         """
         Get the variance at time t.
 
@@ -46,7 +47,7 @@ class MarketEnvironment(ABC):
 class ConstantMarketEnvironment(MarketEnvironment):
     """Market environment with constant mean and variance."""
 
-    def __init__(self, mu, variance):
+    def __init__(self, mu: float, variance: float) -> None:
         """
         Initialize constant market environment.
 
@@ -57,58 +58,21 @@ class ConstantMarketEnvironment(MarketEnvironment):
         self.mu = mu
         self.variance = variance
 
-    def get_mean(self, t):
+    def get_mean(self, t: float) -> float:
         """Get the mean return (constant)."""
         return self.mu
 
-    def get_variance(self, t):
+    def get_variance(self, t: float) -> float:
         """Get the variance (constant)."""
         return self.variance
-
-
-class RegimeSwitchingEnvironment(MarketEnvironment):
-    """Market environment with bull/bear regime switching.
-    
-    Captures the empirical fact that bull regimes have high returns + low volatility
-    while bear regimes have low returns + high volatility.
-    """
-
-    def __init__(self, bull_mu, bull_v, bear_mu, bear_v, switching_times=None):
-        """
-        Initialize regime-switching environment.
-
-        Args:
-            bull_mu: Mean return in bull regime
-            bull_v: Variance in bull regime
-            bear_mu: Mean return in bear regime
-            bear_v: Variance in bear regime
-            switching_times: Years at which regime switches (list). 
-                            If None, no switches (always bull).
-        """
-        self.bull_mu = bull_mu
-        self.bull_v = bull_v
-        self.bear_mu = bear_mu
-        self.bear_v = bear_v
-        self.switching_times = switching_times or []
-
-    def get_mean(self, t):
-        """Get mean return based on current regime."""
-        num_switches = sum(1 for switch_time in self.switching_times if t >= switch_time)
-        is_bull = (num_switches % 2) == 0  # Start with bull
-        return self.bull_mu if is_bull else self.bear_mu
-
-    def get_variance(self, t):
-        """Get variance based on current regime."""
-        num_switches = sum(1 for switch_time in self.switching_times if t >= switch_time)
-        is_bull = (num_switches % 2) == 0  # Start with bull
-        return self.bull_v if is_bull else self.bear_v
 
 
 class ConsumptionModel(ABC):
     """Base class for consumption models C(t)."""
 
     @abstractmethod
-    def get_consumption(self, t, portfolio_value, mu_t=None, v_t=None):
+    def get_consumption(self, t: float, portfolio_value: Optional[float], 
+                       mu_t: Optional[float] = None, v_t: Optional[float] = None) -> float:
         """
         Get consumption at time t.
 
@@ -127,7 +91,7 @@ class ConsumptionModel(ABC):
 class ConstantConsumptionModel(ConsumptionModel):
     """Fixed annual consumption."""
 
-    def __init__(self, annual_consumption):
+    def __init__(self, annual_consumption: float) -> None:
         """
         Initialize constant consumption model.
 
@@ -136,7 +100,8 @@ class ConstantConsumptionModel(ConsumptionModel):
         """
         self.annual_consumption = annual_consumption
 
-    def get_consumption(self, t, portfolio_value=None, mu_t=None, v_t=None):
+    def get_consumption(self, t: float, portfolio_value: Optional[float] = None, 
+                       mu_t: Optional[float] = None, v_t: Optional[float] = None) -> float:
         """Get the consumption (constant)."""
         return self.annual_consumption
 
@@ -144,7 +109,7 @@ class ConstantConsumptionModel(ConsumptionModel):
 class ConstantRateConsumptionModel(ConsumptionModel):
     """Consumption as a constant percentage of portfolio value."""
 
-    def __init__(self, withdrawal_rate):
+    def __init__(self, withdrawal_rate: float) -> None:
         """
         Initialize constant rate consumption model.
 
@@ -153,7 +118,8 @@ class ConstantRateConsumptionModel(ConsumptionModel):
         """
         self.withdrawal_rate = withdrawal_rate
 
-    def get_consumption(self, t, portfolio_value, mu_t=None, v_t=None):
+    def get_consumption(self, t: float, portfolio_value: Optional[float], 
+                       mu_t: Optional[float] = None, v_t: Optional[float] = None) -> float:
         """Get the consumption (percentage of portfolio)."""
         if portfolio_value is None:
             raise ValueError("portfolio_value required for ConstantRateConsumptionModel")
@@ -168,7 +134,7 @@ class StateAdjustedConsumptionModel(ConsumptionModel):
     or higher volatility decreases consumption.
     """
 
-    def __init__(self, base_withdrawal_rate, baseline_mu, baseline_v):
+    def __init__(self, base_withdrawal_rate: float, baseline_mu: float, baseline_v: float) -> None:
         """
         Initialize state-adjusted consumption model.
 
@@ -181,7 +147,8 @@ class StateAdjustedConsumptionModel(ConsumptionModel):
         self.baseline_mu = baseline_mu
         self.baseline_v = baseline_v
 
-    def get_consumption(self, t, portfolio_value, mu_t=None, v_t=None):
+    def get_consumption(self, t: float, portfolio_value: Optional[float], 
+                       mu_t: Optional[float] = None, v_t: Optional[float] = None) -> float:
         """Get consumption adjusted by current market conditions."""
         if portfolio_value is None:
             raise ValueError("portfolio_value required for StateAdjustedConsumptionModel")
@@ -205,30 +172,26 @@ class MarketEnvironmentFactory:
     """Factory for creating market environments."""
 
     @staticmethod
-    def constant(mu, variance):
+    def constant(mu: float, variance: float) -> ConstantMarketEnvironment:
         """Create a constant market environment."""
         return ConstantMarketEnvironment(mu, variance)
-
-    @staticmethod
-    def regime_switching(bull_mu, bull_v, bear_mu, bear_v, switching_times=None):
-        """Create a regime-switching market environment."""
-        return RegimeSwitchingEnvironment(bull_mu, bull_v, bear_mu, bear_v, switching_times)
 
 
 class ConsumptionModelFactory:
     """Factory for creating consumption models."""
 
     @staticmethod
-    def constant(annual_consumption):
+    def constant(annual_consumption: float) -> ConstantConsumptionModel:
         """Create a constant consumption model."""
         return ConstantConsumptionModel(annual_consumption)
 
     @staticmethod
-    def constant_rate(withdrawal_rate):
+    def constant_rate(withdrawal_rate: float) -> ConstantRateConsumptionModel:
         """Create a constant rate consumption model."""
         return ConstantRateConsumptionModel(withdrawal_rate)
 
     @staticmethod
-    def state_adjusted(base_withdrawal_rate, baseline_mu, baseline_v):
+    def state_adjusted(base_withdrawal_rate: float, baseline_mu: float, 
+                      baseline_v: float) -> StateAdjustedConsumptionModel:
         """Create a state-adjusted consumption model that responds to market conditions."""
         return StateAdjustedConsumptionModel(base_withdrawal_rate, baseline_mu, baseline_v)

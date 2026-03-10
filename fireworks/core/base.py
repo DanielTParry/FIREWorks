@@ -1,13 +1,15 @@
 """Base class for withdrawal strategies."""
 
 from abc import ABC, abstractmethod
+from typing import Dict, Any
 
 
 class BaseStrategy(ABC):
     """Abstract base class for all withdrawal strategies."""
 
     @abstractmethod
-    def calculate_ruin_probability(self, initial_capital, annual_withdrawal, market_regime):
+    def calculate_ruin_probability(self, initial_capital: float, 
+                                  annual_withdrawal: float, market_regime: Any) -> float:
         """
         Calculate the probability of ruin for the given parameters.
 
@@ -22,7 +24,8 @@ class BaseStrategy(ABC):
         pass
 
     @abstractmethod
-    def simulate(self, initial_capital, annual_withdrawal, market_regime, years, num_simulations):
+    def simulate(self, initial_capital: float, annual_withdrawal: float, market_regime: Any, 
+                years: float, num_simulations: int) -> Dict[str, Any]:
         """
         Run Monte Carlo simulations for the strategy.
 
@@ -34,6 +37,6 @@ class BaseStrategy(ABC):
             num_simulations: Number of simulation paths
 
         Returns:
-            Results dataframe
+            Results dictionary
         """
         pass
