@@ -13,28 +13,16 @@ import numpy as np
 class MCSimulator:
     """Monte Carlo simulator for portfolio dynamics."""
 
-    def __init__(self, mean_model=None, variance_model=None, consumption_model=None, 
-                 joint_parameter_model=None):
+    def __init__(self, market_environment, consumption_model):
         """
         Initialize the simulator.
 
         Args:
-            mean_model: MeanModel instance defining μ(t) (alternative to joint_parameter_model)
-            variance_model: VarianceModel instance defining v(t) (alternative to joint_parameter_model)
+            market_environment: MarketEnvironment instance defining μ(t) and v(t)
             consumption_model: ConsumptionModel instance defining C(t)
-            joint_parameter_model: JointParameterModel instance defining (μ(t), v(t)) together
-                                   If provided, mean_model and variance_model are ignored.
         """
-        self.mean_model = mean_model
-        self.variance_model = variance_model
+        self.market_environment = market_environment
         self.consumption_model = consumption_model
-        self.joint_parameter_model = joint_parameter_model
-        
-        # Validate that we have either joint model or independent models
-        if joint_parameter_model is None and (mean_model is None or variance_model is None):
-            raise ValueError(
-                "Must provide either joint_parameter_model or both mean_model and variance_model"
-            )
 
     def simulate(self, initial_capital, years, num_simulations, num_steps=None):
         """
@@ -74,15 +62,9 @@ class MCSimulator:
             t = time_grid[step]
             P_t = paths[:, step]
 
-            # Get model values at this time
-            if self.joint_parameter_model is not None:
-                # Use joint model for cointegrated parameters
-                mu_t, v_t = self.joint_parameter_model.get_parameters(t)
-            else:
-                # Use independent models
-                mu_t = self.mean_model.get_return(t)
-                v_t = self.variance_model.get_variance(t)
-            
+            # Get market parameters at this time
+            mu_t = self.market_environment.get_mean(t)
+            v_t = self.market_environment.get_variance(t)
             C_t = self.consumption_model.get_consumption(t, P_t, mu_t=mu_t, v_t=v_t)
 
             # Euler-Maruyama step

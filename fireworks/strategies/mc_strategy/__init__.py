@@ -7,53 +7,36 @@ under stochastic portfolio dynamics modeled by:
 
 Where:
     P_t = portfolio value at time t
-    μ(t) = mean return at time t
-    v(t) = variance at time t
-    C(t) = consumption at time t
+    μ(t) = mean return at time t (from MarketEnvironment)
+    v(t) = variance at time t (from MarketEnvironment)
+    C(t) = consumption at time t (from ConsumptionModel)
     dW_t = Wiener process increment
-
-Supports both independent parameter models (for flexibility) and joint parameter models 
-(to capture cointegration between returns and volatility).
 """
 
 from .strategy import MCStrategy
 from .models import (
-    MeanModel,
-    ConstantMeanModel,
-    MeanModelFactory,
-    VarianceModel,
-    ConstantVarianceModel,
-    VarianceModelFactory,
+    MarketEnvironment,
+    ConstantMarketEnvironment,
+    RegimeSwitchingEnvironment,
+    MarketEnvironmentFactory,
     ConsumptionModel,
     ConstantConsumptionModel,
     ConstantRateConsumptionModel,
     StateAdjustedConsumptionModel,
     ConsumptionModelFactory,
-    JointParameterModel,
-    ConstantJointModel,
-    RegimeSwitchingModel,
-    CorrelatedModel,
-    JointParameterModelFactory,
 )
 from .calculator import MCSimulator
 
 __all__ = [
     "MCStrategy",
     "MCSimulator",
-    "MeanModel",
-    "ConstantMeanModel",
-    "MeanModelFactory",
-    "VarianceModel",
-    "ConstantVarianceModel",
-    "VarianceModelFactory",
+    "MarketEnvironment",
+    "ConstantMarketEnvironment",
+    "RegimeSwitchingEnvironment",
+    "MarketEnvironmentFactory",
     "ConsumptionModel",
     "ConstantConsumptionModel",
     "ConstantRateConsumptionModel",
     "StateAdjustedConsumptionModel",
     "ConsumptionModelFactory",
-    "JointParameterModel",
-    "ConstantJointModel",
-    "RegimeSwitchingModel",
-    "CorrelatedModel",
-    "JointParameterModelFactory",
 ]

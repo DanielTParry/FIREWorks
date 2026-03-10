@@ -2,8 +2,7 @@
 
 from fireworks.core.base import BaseStrategy
 from .models import (
-    MeanModelFactory,
-    VarianceModelFactory,
+    MarketEnvironmentFactory,
     ConsumptionModelFactory,
 )
 from .calculator import MCSimulator
@@ -15,17 +14,12 @@ class MCStrategy(BaseStrategy):
 
     Uses Monte Carlo simulation to estimate probability of ruin under
     a stochastic differential equation model of portfolio dynamics.
-    
-    Supports both independent models (maximum flexibility) and joint 
-    parameter models (to capture cointegration between returns and volatility).
     """
 
     def __init__(
         self,
-        mean_model=None,
-        variance_model=None,
+        market_environment=None,
         consumption_model=None,
-        joint_parameter_model=None,
         num_simulations=10000,
         num_steps=None,
     ):
@@ -33,31 +27,15 @@ class MCStrategy(BaseStrategy):
         Initialize MC Strategy.
 
         Args:
-            mean_model: MeanModel instance (ignored if joint_parameter_model provided)
-            variance_model: VarianceModel instance (ignored if joint_parameter_model provided)
+            market_environment: MarketEnvironment instance (default: constant 7% return, 4% variance)
             consumption_model: ConsumptionModel instance (default: constant $0)
-            joint_parameter_model: JointParameterModel for cointegrated return/variance
             num_simulations: Number of Monte Carlo paths
             num_steps: Number of time steps per year (default: 1 step per year)
         """
-        # Validate inputs
-        if joint_parameter_model is None:
-            if mean_model is None or variance_model is None:
-                # Set defaults if not provided
-                from .models import MeanModelFactory, VarianceModelFactory
-                self.mean_model = mean_model or MeanModelFactory.constant(0.07)
-                self.variance_model = variance_model or VarianceModelFactory.constant(0.04)
-            else:
-                self.mean_model = mean_model
-                self.variance_model = variance_model
-            self.joint_parameter_model = None
-        else:
-            self.mean_model = None
-            self.variance_model = None
-            self.joint_parameter_model = joint_parameter_model
-
+        # Set defaults if not provided
+        self.market_environment = market_environment or MarketEnvironmentFactory.constant(0.07, 0.04)
+        
         if consumption_model is None:
-            from .models import ConsumptionModelFactory
             self.consumption_model = ConsumptionModelFactory.constant(0)
         else:
             self.consumption_model = consumption_model
@@ -66,10 +44,8 @@ class MCStrategy(BaseStrategy):
         self.num_steps = num_steps
 
         self.simulator = MCSimulator(
-            mean_model=self.mean_model,
-            variance_model=self.variance_model,
-            consumption_model=self.consumption_model,
-            joint_parameter_model=self.joint_parameter_model,
+            self.market_environment,
+            self.consumption_model,
         )
 
     def calculate_ruin_probability(
@@ -93,16 +69,13 @@ class MCStrategy(BaseStrategy):
         """
         # Use provided consumption or create one from annual_withdrawal
         if annual_withdrawal > 0:
-            from .models import ConsumptionModelFactory
             consumption_model = ConsumptionModelFactory.constant(annual_withdrawal)
         else:
             consumption_model = self.consumption_model
 
         simulator = MCSimulator(
-            mean_model=self.mean_model,
-            variance_model=self.variance_model,
-            consumption_model=consumption_model,
-            joint_parameter_model=self.joint_parameter_model,
+            self.market_environment,
+            consumption_model,
         )
 
         num_sims = num_simulations or self.num_simulations
@@ -138,16 +111,13 @@ class MCStrategy(BaseStrategy):
         """
         # Use provided consumption or create one from annual_withdrawal
         if annual_withdrawal > 0:
-            from .models import ConsumptionModelFactory
             consumption_model = ConsumptionModelFactory.constant(annual_withdrawal)
         else:
             consumption_model = self.consumption_model
 
         simulator = MCSimulator(
-            mean_model=self.mean_model,
-            variance_model=self.variance_model,
-            consumption_model=consumption_model,
-            joint_parameter_model=self.joint_parameter_model,
+            self.market_environment,
+            consumption_model,
         )
 
         num_sims = num_simulations or self.num_simulations
