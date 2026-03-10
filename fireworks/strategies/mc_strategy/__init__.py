@@ -20,8 +20,6 @@ from .models import (
     MarketEnvironmentFactory,
     ConsumptionModel,
     ConstantConsumptionModel,
-    ConstantRateConsumptionModel,
-    StateAdjustedConsumptionModel,
     ConsumptionModelFactory,
 )
 from .calculator import MCSimulator
@@ -34,7 +32,5 @@ __all__ = [
     "MarketEnvironmentFactory",
     "ConsumptionModel",
     "ConstantConsumptionModel",
-    "ConstantRateConsumptionModel",
-    "StateAdjustedConsumptionModel",
     "ConsumptionModelFactory",
 ]
