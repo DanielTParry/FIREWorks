@@ -15,10 +15,10 @@ Where:
 
 from .strategy import MCStrategy
 from .models import (
-    MarketEnvironment,
+    AbstractMarketEnvironment,
     ConstantMarketEnvironment,
     MarketEnvironmentFactory,
-    ConsumptionModel,
+    AbstractConsumptionModel,
     ConstantConsumptionModel,
     ConsumptionModelFactory,
 )
@@ -27,10 +27,10 @@ from .calculator import MCSimulator
 __all__ = [
     "MCStrategy",
     "MCSimulator",
-    "MarketEnvironment",
+    "AbstractMarketEnvironment",
     "ConstantMarketEnvironment",
     "MarketEnvironmentFactory",
-    "ConsumptionModel",
+    "AbstractConsumptionModel",
     "ConstantConsumptionModel",
     "ConsumptionModelFactory",
 ]

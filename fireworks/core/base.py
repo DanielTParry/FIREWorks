@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from typing import Dict, Any
 
 
-class BaseStrategy(ABC):
+class AbstractStrategy(ABC):
     """Abstract base class for all withdrawal strategies."""
 
     @abstractmethod

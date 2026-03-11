@@ -1,17 +1,17 @@
 """MC Strategy: Monte Carlo simulation of portfolio ruin probability."""
 
 from typing import Dict, Any, Optional
-from fireworks.core.base import BaseStrategy
+from fireworks.core.base import AbstractStrategy
 from .models import (
     MarketEnvironmentFactory,
     ConsumptionModelFactory,
-    MarketEnvironment,
-    ConsumptionModel,
+    AbstractMarketEnvironment,
+    AbstractConsumptionModel,
 )
 from .calculator import MCSimulator
 
 
-class MCStrategy(BaseStrategy):
+class MCStrategy(AbstractStrategy):
     """
     Monte Carlo Strategy for analyzing withdrawal strategies.
 
@@ -21,8 +21,8 @@ class MCStrategy(BaseStrategy):
 
     def __init__(
         self,
-        market_environment: Optional[MarketEnvironment] = None,
-        consumption_model: Optional[ConsumptionModel] = None,
+        market_environment: Optional[AbstractMarketEnvironment] = None,
+        consumption_model: Optional[AbstractConsumptionModel] = None,
         num_simulations: int = 10000,
         num_steps: Optional[int] = None,
     ) -> None:
@@ -30,8 +30,8 @@ class MCStrategy(BaseStrategy):
         Initialize MC Strategy.
 
         Args:
-            market_environment: MarketEnvironment instance (default: constant 7% return, 4% variance)
-            consumption_model: ConsumptionModel instance (default: constant $0)
+            market_environment: AbstractMarketEnvironment instance (default: constant 7% return, 4% variance)
+            consumption_model: AbstractConsumptionModel instance (default: constant $0)
             num_simulations: Number of Monte Carlo paths
             num_steps: Number of time steps per year (default: 1 step per year)
         """

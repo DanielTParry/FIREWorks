@@ -1,5 +1,5 @@
 """Core utilities and base classes for FIRE withdrawal strategies."""
 
-from .base import BaseStrategy
+from .base import AbstractStrategy
 
-__all__ = ["BaseStrategy"]
+__all__ = ["AbstractStrategy"]

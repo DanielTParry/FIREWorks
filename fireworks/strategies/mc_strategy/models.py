@@ -14,8 +14,8 @@ from abc import ABC, abstractmethod
 from typing import Optional
 
 
-class MarketEnvironment(ABC):
-    """Base class for market environments defining mean return and variance."""
+class AbstractMarketEnvironment(ABC):
+    """Abstract base class for market environments defining mean return and variance."""
 
     @abstractmethod
     def get_mean(self, t: float) -> float:
@@ -44,7 +44,7 @@ class MarketEnvironment(ABC):
         pass
 
 
-class ConstantMarketEnvironment(MarketEnvironment):
+class ConstantMarketEnvironment(AbstractMarketEnvironment):
     """Market environment with constant mean and variance."""
 
     def __init__(self, mu: float, variance: float) -> None:
@@ -67,8 +67,8 @@ class ConstantMarketEnvironment(MarketEnvironment):
         return self.variance
 
 
-class ConsumptionModel(ABC):
-    """Base class for consumption models C(t)."""
+class AbstractConsumptionModel(ABC):
+    """Abstract base class for consumption models C(t)."""
 
     @abstractmethod
     def get_consumption(self, t: float, portfolio_value: Optional[float], 
@@ -88,7 +88,7 @@ class ConsumptionModel(ABC):
         pass
 
 
-class ConstantConsumptionModel(ConsumptionModel):
+class ConstantConsumptionModel(AbstractConsumptionModel):
     """Fixed annual consumption."""
 
     def __init__(self, annual_consumption: float) -> None:

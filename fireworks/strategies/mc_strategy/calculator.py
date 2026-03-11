@@ -14,14 +14,14 @@ import numpy as np
 class MCSimulator:
     """Monte Carlo simulator for portfolio dynamics."""
 
-    def __init__(self, market_environment: 'MarketEnvironment', 
-                 consumption_model: 'ConsumptionModel') -> None:
+    def __init__(self, market_environment: 'AbstractMarketEnvironment', 
+                 consumption_model: 'AbstractConsumptionModel') -> None:
         """
         Initialize the simulator.
 
         Args:
-            market_environment: MarketEnvironment instance defining μ(t) and v(t)
-            consumption_model: ConsumptionModel instance defining C(t)
+            market_environment: AbstractMarketEnvironment instance defining μ(t) and v(t)
+            consumption_model: AbstractConsumptionModel instance defining C(t)
         """
         self.market_environment = market_environment
         self.consumption_model = consumption_model

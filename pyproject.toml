@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fireworks"
+version = "0.1.0"
+description = "A library for financial independence and retirement planning"
+requires-python = ">=3.8"
+authors = [
+    {name = "DanielTParry", email = "dan.t.parry@gmail.com"}
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
+
+[tool.black]
+line-length = 88
+
+[tool.isort]
+profile = "black"

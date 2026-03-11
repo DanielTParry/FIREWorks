@@ -9,6 +9,8 @@ from fireworks.strategies.mc_strategy import (
     ConstantConsumptionModel,
     MarketEnvironmentFactory,
     ConsumptionModelFactory,
+    AbstractMarketEnvironment,
+    AbstractConsumptionModel,
 )
 
 
