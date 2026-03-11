@@ -133,7 +133,18 @@ class MCStrategy(AbstractStrategy):
             num_steps=num_steps_to_use,
         )
 
-        # Add statistics to results
-        results['statistics'] = simulator.compute_statistics(results)
+        # Compute ruin probability and statistics
+        ruin_probability = simulator.compute_ruin_probability(results)
+        statistics = simulator.compute_statistics(results)
 
-        return results
+        # Return a clean result dictionary
+        return {
+            'ruin_probability': ruin_probability,
+            'final_values': results['final_values'],
+            'paths': results['paths'],
+            'ruin_steps': results['ruin_steps'],
+            'statistics': statistics,
+            'num_simulations': num_sims,
+            'num_steps': num_steps_to_use,
+            'years': years,
+        }

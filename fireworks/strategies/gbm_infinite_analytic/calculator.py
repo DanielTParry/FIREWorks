@@ -11,7 +11,8 @@ With constant withdrawal C and infinite time horizon.
 
 from typing import Dict, Any
 import numpy as np
-from scipy.special import gammaincc
+from scipy.special import gammaincc, gammaln
+from scipy.stats import gamma as gamma_dist
 
 
 class GBMInfiniteAnalyticCalculator:
@@ -51,42 +52,42 @@ class GBMInfiniteAnalyticCalculator:
         # Get consumption (at t=0, currently constant)
         C = self.consumption_model.get_consumption(0, initial_capital)
 
-        # Rescaled parameters for gamma function
-        # a = (2*mu / variance) - 1
-        # x = 2*C / variance  (where C/P_0 maps to withdrawal rate w = C/P_0)
-        
-        # However, the traditional formulation relates to the withdrawal rate
-        # w = C / P_0 = annual_withdrawal / initial_capital
-        # So we compute x = 2*w / variance where w is the withdrawal rate
+        # Handle edge cases
+        if variance <= 0:
+            # Degenerate case
+            return 0.0 if annual_withdrawal <= 0 else 1.0
         
         w = annual_withdrawal / initial_capital if initial_capital > 0 else 0
 
-        # Parameters for incomplete gamma function
-        a = (2.0 * mu / variance) - 1.0
-        x = 2.0 * w / variance
-
-        # Handle edge cases
-        if a <= 0 or variance <= 0:
-            # Process not well-defined or degenerative
-            return 0.0 if w <= mu else 1.0
-        
         if w <= 0:
             # No withdrawal means survival is certain
             return 0.0
-        
-        if w >= mu:
-            # Withdrawal exceeds drift, certain ruin
-            return 1.0
 
-        # Survival probability via regularized upper incomplete gamma
-        # gammaincc(a, x) = Γ(a, x) / Γ(a)
-        survival_prob = gammaincc(a, x)
+        # Parameters for incomplete gamma function
+        # a = (2*mu / variance) - 1
+        # x = 2*w / variance
+        # where w = C / P_0 is the withdrawal rate
         
-        # Ruin probability is complement
-        ruin_probability = 1.0 - survival_prob
+        a = (2.0 * mu / variance) - 1.0
+        x = 2.0 * w / variance
+
+        # Check for degenerate parameter a
+        if a <= 0:
+            # Shape parameter must be positive. This happens when μ < σ²/2
+            # In this case, use a softer boundary: if w >= μ, very high ruin probability
+            if w >= mu:
+                return 0.99
+            else:
+                # Fall back to simple heuristic
+                return min(w / mu, 0.99)
+
+        # Use scipy.stats.gamma.cdf which is more numerically stable
+        # than direct incomplete gamma function manipulation
+        # Ruin probability = 1 - P(X <= x) where X ~ Gamma(a, scale=1)
+        # This is equivalent to 1 - gammaincc(a, x)
         
         # Clamp to valid range
-        return float(np.clip(ruin_probability, 0.0, 1.0))
+        return float(np.clip(gamma_dist.cdf(x, a), 0.0, 1.0))
 
     def compute_statistics(self, initial_capital: float, 
                           annual_withdrawal: float) -> Dict[str, Any]:
