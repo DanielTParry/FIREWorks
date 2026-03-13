@@ -94,7 +94,8 @@ class GBMFiniteAnalyticCalculator:
         # Stochastic case: spectral decomposition
         w = annual_withdrawal / initial_capital
         s_stat, s_bounded, s_branch, s_tot = self._exact_spectral_decomposition(mu, variance, w, years)
-        return float(np.clip(s_tot, 0.0, 1.0))
+        # s_tot is survival probability; convert to ruin probability
+        return float(np.clip(1.0 - s_tot, 0.0, 1.0))
 
     def _ruin_probability_deterministic(self, mu: float, annual_withdrawal: float,
                                         initial_capital: float, years: float) -> float:
