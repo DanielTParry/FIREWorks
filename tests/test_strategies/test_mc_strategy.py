@@ -6,6 +6,7 @@ from fireworks.strategies.mc_strategy import (
     MCStrategy,
     MCSimulator,
     ConstantMarketEnvironment,
+    HestonMarketEnvironment,
     ConstantConsumptionModel,
     MarketEnvironmentFactory,
     ConsumptionModelFactory,
@@ -261,6 +262,133 @@ class TestMCStrategy(unittest.TestCase):
     def test_small_withdrawal_low_ruin(self):
         """Small withdrawal should have low ruin probability."""
         strategy = MCStrategy(num_simulations=100)
+        prob = strategy.calculate_ruin_probability(
+            initial_capital=1000000,
+            annual_withdrawal=20000,  # 2% withdrawal rate
+            years=30,
+        )
+
+        # Should have low ruin probability
+        self.assertLess(prob, 0.1)
+
+
+class TestHestonMarketEnvironment(unittest.TestCase):
+    """Tests for HestonMarketEnvironment."""
+
+    def setUp(self):
+        """Set up test fixtures."""
+        self.mu = 0.07
+        self.kappa = 2.0
+        self.theta = 0.04
+        self.xi = 0.3
+        self.initial_variance = 0.04
+        self.rho = -0.5
+        
+        self.env = MarketEnvironmentFactory.heston(
+            mu=self.mu,
+            kappa=self.kappa,
+            theta=self.theta,
+            xi=self.xi,
+            initial_variance=self.initial_variance,
+            rho=self.rho,
+        )
+
+    def test_heston_env_creation(self):
+        """Heston environment should initialize correctly."""
+        self.assertEqual(self.env.mu, self.mu)
+        self.assertEqual(self.env.kappa, self.kappa)
+        self.assertEqual(self.env.theta, self.theta)
+        self.assertEqual(self.env.xi, self.xi)
+        self.assertEqual(self.env.rho, self.rho)
+
+    def test_heston_get_mean_constant(self):
+        """Mean should be constant."""
+        self.assertEqual(self.env.get_mean(0), self.mu)
+        self.assertEqual(self.env.get_mean(10), self.mu)
+
+    def test_heston_initial_variance(self):
+        """Initial variance should be accessible."""
+        self.assertEqual(self.env.get_variance(0), self.initial_variance)
+
+    def test_heston_update_variance(self):
+        """Variance should update when modified."""
+        v_new = 0.06
+        self.env.update_variance(v_new)
+        self.assertEqual(self.env.get_variance(0), v_new)
+
+    def test_heston_update_variance_feller_boundary(self):
+        """Negative variance should clamp to zero (Feller boundary)."""
+        self.env.update_variance(-0.01)
+        self.assertEqual(self.env.get_variance(0), 0.0)
+
+    def test_heston_reset(self):
+        """Reset should restore initial variance."""
+        self.env.update_variance(0.10)
+        self.env.reset()
+        self.assertEqual(self.env.get_variance(0), self.initial_variance)
+
+    def test_heston_invalid_parameters(self):
+        """Invalid parameters should raise errors."""
+        # Invalid mu
+        with self.assertRaises(ValueError):
+            MarketEnvironmentFactory.heston(
+                mu=-2.0,
+                kappa=2.0,
+                theta=0.04,
+                xi=0.3,
+                initial_variance=0.04,
+            )
+
+        # Invalid kappa
+        with self.assertRaises(ValueError):
+            MarketEnvironmentFactory.heston(
+                mu=0.07,
+                kappa=-1.0,
+                theta=0.04,
+                xi=0.3,
+                initial_variance=0.04,
+            )
+
+        # Invalid correlation
+        with self.assertRaises(ValueError):
+            MarketEnvironmentFactory.heston(
+                mu=0.07,
+                kappa=2.0,
+                theta=0.04,
+                xi=0.3,
+                initial_variance=0.04,
+                rho=1.5,
+            )
+
+    def test_heston_with_mc_strategy(self):
+        """Heston environment should work with MCStrategy."""
+        strategy = MCStrategy(
+            market_environment=self.env,
+            consumption_model=ConsumptionModelFactory.constant(40000),
+            num_simulations=50,
+        )
+
+        result = strategy.simulate(
+            initial_capital=1000000,
+            annual_withdrawal=40000,
+            years=10,
+        )
+
+        self.assertIsInstance(result, dict)
+        self.assertIn('ruin_probability', result['statistics'])
+
+    def test_heston_state_isolation(self):
+        """Multiple Heston environments should have independent state."""
+        env1 = MarketEnvironmentFactory.heston(
+            mu=0.07, kappa=2.0, theta=0.04, xi=0.3, initial_variance=0.04
+        )
+        env2 = MarketEnvironmentFactory.heston(
+            mu=0.07, kappa=2.0, theta=0.04, xi=0.3, initial_variance=0.04
+        )
+
+        env1.update_variance(0.08)
+        self.assertEqual(env1.get_variance(0), 0.08)
+        self.assertEqual(env2.get_variance(0), 0.04)  # Should not change
         prob = strategy.calculate_ruin_probability(
             initial_capital=1000000,
             annual_withdrawal=10000,  # 1% withdrawal rate - very low

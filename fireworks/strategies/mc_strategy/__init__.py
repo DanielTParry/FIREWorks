@@ -17,6 +17,7 @@ from .strategy import MCStrategy
 from .models import (
     AbstractMarketEnvironment,
     ConstantMarketEnvironment,
+    HestonMarketEnvironment,
     MarketEnvironmentFactory,
     AbstractConsumptionModel,
     ConstantConsumptionModel,
@@ -29,6 +30,7 @@ __all__ = [
     "MCSimulator",
     "AbstractMarketEnvironment",
     "ConstantMarketEnvironment",
+    "HestonMarketEnvironment",
     "MarketEnvironmentFactory",
     "AbstractConsumptionModel",
     "ConstantConsumptionModel",
