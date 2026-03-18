@@ -5,13 +5,13 @@ over finite time horizons under GBM with constant parameters and withdrawal.
 
 The solution decomposes into three components:
     1. Stationary ground state (incomplete Gamma function)
-    2. Discrete bounded states (Monthus & Bouchaud pole residues)
-    3. Continuous branch cut (scattering integral - uses approximation if mpmath unavailable)
+    2. Discrete bounded states (Monthus & Comtet pole residues)
+    3. Continuous branch cut (scattering integral)
 
-Reference:
-    Monthus, C., & Bouchaud, J.-P. (2015). Optimal leverage from non-linear utility.
-    Journal of Economic Dynamics and Control, 53, 1-16.
-    https://doi.org/10.1016/j.jedc.2015.02.003
+References:
+    Monthus, C., & Comtet, A. (1994). On the flux distribution in a one dimensional 
+    disordered system. Journal de Physique I, 4(5), 635-653.
+    https://hal.science/jpa-00246938v1/file/ajp-jp1v4p635.pdf
 """
 
 from typing import Dict, Any, Tuple, Callable
@@ -35,20 +35,39 @@ class GBMFiniteAnalyticCalculator:
     """Analytical calculator for finite-horizon GBM ruin probability."""
 
     def __init__(self, market_environment: AbstractMarketEnvironment,
-                 consumption_model: AbstractConsumptionModel) -> None:
+                 consumption_model: AbstractConsumptionModel, *,
+                 eps: float = 1e-8,
+                 mpmath_extra_dps: int = 16,
+                 branch_cut_s_max: float = 15.0,
+                 quad_limit: int = 100) -> None:
         """
         Initialize the calculator.
 
         Args:
             market_environment: Market environment defining μ and variance
             consumption_model: Consumption model defining withdrawal C
+            eps: Absolute tolerance for all numerical integration.
+            mpmath_extra_dps: Extra decimal places for mpmath arithmetic.
+            branch_cut_s_max: Upper limit for the scattering momentum integral.
+                The branch-cut integrand envelope behaves as
+                    I(s) ~ s^{−ν+1} · exp(−τs²/2 + πs/2)
+                and decays as a Gaussian beyond its peak at s* = π/(2τ).
+                For typical equity parameters (σ² ≈ 0.04, T = 30 → τ ≈ 0.3),
+                the integrand is negligible well before s = 15.  For low-
+                volatility regimes (τ < 0.05, e.g. bonds) the peak shifts
+                beyond 15 and this value must be increased accordingly.
+            quad_limit: Maximum subintervals for scipy.integrate.quad.
         """
         self.market_environment = market_environment
         self.consumption_model = consumption_model
+        self._eps = eps
+        self._mpmath_dps = int(-np.log10(eps)) + mpmath_extra_dps
+        self._branch_cut_s_max = branch_cut_s_max
+        self._quad_limit = quad_limit
 
     def calculate_ruin_probability_finite(self, initial_capital: float,
-                                         annual_withdrawal: float,
-                                         years: float) -> float:
+                                          annual_withdrawal: float,
+                                          years: float) -> float:
         """
         Calculate probability of ruin over finite time horizon.
 
@@ -76,7 +95,6 @@ class GBMFiniteAnalyticCalculator:
         if annual_withdrawal < 0:
             raise ValueError(f"annual_withdrawal must be ≥ 0, got {annual_withdrawal}")
         
-        # Quick returns for boundary cases
         if annual_withdrawal <= 0:
             return 0.0
         if annual_withdrawal >= initial_capital:
@@ -85,16 +103,13 @@ class GBMFiniteAnalyticCalculator:
         mu = self.market_environment.get_mean(0)
         variance = self.market_environment.get_variance(0)
         
-        # Zero variance: deterministic portfolio
         if variance <= 0:
             return self._ruin_probability_deterministic(mu, annual_withdrawal, initial_capital, years)
         if mu < 0:
-            raise ValueError(f"Negative drift (mu={mu}) not supported in current implementation.") 
+            raise ValueError(f"Negative drift (mu={mu}) not supported.") 
 
-        # Stochastic case: spectral decomposition
         w = annual_withdrawal / initial_capital
-        s_stat, s_bounded, s_branch, s_tot = self._exact_spectral_decomposition(mu, variance, w, years)
-        # s_tot is survival probability; convert to ruin probability
+        _, _, _, s_tot = self._exact_spectral_decomposition(mu, variance, w, years)
         return float(np.clip(1.0 - s_tot, 0.0, 1.0))
 
     def _ruin_probability_deterministic(self, mu: float, annual_withdrawal: float,
@@ -119,9 +134,7 @@ class GBMFiniteAnalyticCalculator:
             portfolio_capacity = (1.0 - np.exp(-mu * years)) / mu
             max_sustainable_swr = 1.0 / portfolio_capacity
             return 0.0 if swr <= max_sustainable_swr else 1.0
-        else:
-            # μ ≤ 0: No growth or negative growth → certain ruin with withdrawals
-            return 1.0
+        return 1.0
 
     def _exact_spectral_decomposition(self, mu: float, sigma_sq: float,
                                       w: float, T: float) -> Tuple[float, float, float, float]:
@@ -151,25 +164,17 @@ class GBMFiniteAnalyticCalculator:
         theta = sigma_sq
         nu = (2.0 * mu / theta) - 1.0
         tau = (theta / 4.0) * T
-
         z_target = 2.0 * w / theta
 
-        # Component 1: Stationary ground state
         S_stat = self._compute_ground_state(nu, z_target)
-
-        # Component 2: Discrete bounded states
         S_bounded = self._compute_bounded_states(nu, z_target, tau)
-
-        # Component 3: Continuous branch cut
         S_branch = self._compute_branch_cut(nu, z_target, tau)
-
-        # Total probability
         S_tot = S_stat + S_bounded + S_branch
 
         return S_stat, S_bounded, S_branch, S_tot
 
     @staticmethod
-    def _mpmath_whittaker_w(kappa: float, mu_param: float, z: float) -> Any:
+    def _mpmath_whittaker_w(kappa: float, mu_param: complex, z: float) -> Any:
         """
         Construct the complex Whittaker W function natively.
         
@@ -183,12 +188,9 @@ class GBMFiniteAnalyticCalculator:
         Returns:
             Complex Whittaker W function value (mpmath.mpc type)
         """
-        # Set precision on first use (lazy initialization to avoid Windows DLL load at import)
-        mpmath.mp.dps = 15
-        
         a = mu_param - kappa + 0.5
         b = 1.0 + 2.0 * mu_param
-        z_mp = mpmath.mpc(z)
+        z_mp = mpmath.mpc(float(z))
         U_val = mpmath.hyperu(a, b, z_mp)
         return mpmath.exp(-z_mp / 2.0) * (z_mp**(mu_param + 0.5)) * U_val
 
@@ -206,59 +208,40 @@ class GBMFiniteAnalyticCalculator:
         """
         return gammaincc(nu, z_target)
 
-    @staticmethod
-    def _compute_bounded_states(nu: float, z_target: float, tau: float) -> float:
+    def _compute_bounded_states(self, nu: float, z_target: float, tau: float) -> float:
         """
         Compute contribution from discrete bounded states.
 
-        Uses Monthus & Bouchaud pole residue coefficients with Laguerre polynomials.
+        Uses Monthus & Comtet pole residue coefficients with
+        generalized Laguerre polynomials.
 
         Args:
-            nu: Shape parameter
-            z_target: Target value 2w/θ
-            tau: Scaled time (θ/4) * T
+            nu: Shape parameter ν = 2μ/σ² − 1
+            z_target: Target value 2w/σ²
+            tau: Scaled time (σ²/4)·T
 
         Returns:
-            Bounded states contribution
+            Bounded states contribution to survival probability
         """
         N_states = max(0, int(np.floor((nu + 1.0) / 2.0 - 1e-7)))
         S_bounded = 0.0
-
         for n in range(1, N_states + 1):
             lam_n = 0.5 * n * (2.0 * nu - n)
-
-            # Exact Monthus & Bouchaud pole residue coefficient
             coef = ((-1.0) ** n * (nu + 1.0 - 2.0 * n)) / gamma(nu + 2.0 - n)
             L_n = genlaguerre(n, nu - 2.0 * n)
-
-            # Create density function using closure to capture parameters
-            def get_density(n_val: int, c_val: float, L_val: Any) -> Callable[[float], float]:
-                """Factory function to create bounded density integrand."""
-                def bounded_density(x: float) -> float:
-                    return c_val * (x**(nu - n_val - 1.0)) * np.exp(-x) * L_val(x)
-                return bounded_density
-
-            f_n = get_density(n, coef, L_n)
-            res, _ = quad(f_n, z_target, np.inf, epsabs=1e-8)
+            res, _ = quad(lambda x: coef * (x**(nu-n-1.0)) * np.exp(-x) * L_n(x), z_target, np.inf, epsabs=self._eps)
             S_bounded += np.exp(-lam_n * tau) * res
-
         return S_bounded
 
     def _compute_branch_cut(self, nu: float, z_target: float, tau: float) -> float:
         """
-        Compute contribution from continuous branch cut (Monthus & Bouchaud Eq 5.5).
+        Compute contribution from continuous branch cut (Monthus & Comtet Eq 5.5).
 
         Uses exact nested numerical integration with mpmath for the complex spectral weight.
         Outer integral over scattering momentum s, inner integral over density function.
-
-        Args:
-            nu: Shape parameter
-            z_target: Target value 2w/θ
-            tau: Scaled time (θ/4) * T
-
-        Returns:
-            Branch cut contribution
         """
+        mpmath.mp.dps = self._mpmath_dps
+
         def branch_cut_integrand(s: float) -> float:
             s_mp = mpmath.mpf(s)
 
@@ -275,23 +258,18 @@ class GBMFiniteAnalyticCalculator:
 
                 whittaker_val = GBMFiniteAnalyticCalculator._mpmath_whittaker_w(kappa, mu_param, u)
 
-                # The density mapped perfectly to the CDF boundary
-                # W(...) * u^((nu-3)/2) * e^(-u/2)
                 return float((u**((nu - 3.0)/2.0)) * mpmath.re(whittaker_val) * mpmath.exp(-u / 2.0))
 
-            # Use SciPy quad for the inner integral to keep execution time viable
-            inner_res, _ = quad(inner_u_integrand, z_target, np.inf, epsabs=1e-5)
+            inner_res, _ = quad(inner_u_integrand, z_target, np.inf,
+                               epsabs=self._eps)
 
             return float(time_decay * weight) * inner_res
 
-        # Outer coefficient
-        coef = 1.0 / (4.0 * np.pi**2)
+        cut_integral, _ = quad(branch_cut_integrand, 0.0, self._branch_cut_s_max,
+                               epsabs=self._eps,
+                               limit=self._quad_limit)
 
-        # Integrate over the scattering momentum s
-        cut_integral, _ = quad(branch_cut_integrand, 0.0, 15.0, epsabs=1e-5, limit=50)
-        S_branch = coef * cut_integral
-
-        return S_branch
+        return cut_integral / (4.0 * np.pi**2)
 
     def compute_statistics(self, initial_capital: float,
                           annual_withdrawal: float,
@@ -305,36 +283,23 @@ class GBMFiniteAnalyticCalculator:
             years: Time horizon
 
         Returns:
-            Dictionary with analytical results and spectral components
+            Dictionary with ruin/survival probabilities, parameters,
+            and spectral component breakdown.
         """
         mu = self.market_environment.get_mean(0)
         variance = self.market_environment.get_variance(0)
-        sigma = np.sqrt(variance)
-
         w = annual_withdrawal / initial_capital if initial_capital > 0 else 0
-        ruin_prob = self.calculate_ruin_probability_finite(
-            initial_capital, annual_withdrawal, years
-        )
-        survival_prob = 1.0 - ruin_prob
-
-        # Compute spectral components (using withdrawal rate w, not absolute amount)
-        s_stat, s_bounded, s_branch, _ = self._exact_spectral_decomposition(
-            mu, variance, w, years
-        )
+        stats = self._exact_spectral_decomposition(mu, variance, w, years)
+        ruin_prob = float(np.clip(1.0 - stats[3], 0.0, 1.0))
 
         return {
             'ruin_probability': ruin_prob,
-            'survival_probability': survival_prob,
-            'initial_capital': initial_capital,
-            'annual_withdrawal': annual_withdrawal,
+            'survival_probability': 1.0 - ruin_prob,
             'withdrawal_rate': w,
-            'mean_return': mu,
-            'variance': variance,
-            'sigma': sigma,
             'horizon': years,
             'spectral_components': {
-                'ground_state': s_stat,
-                'bounded_states': s_bounded,
-                'branch_cut': s_branch,
+                'ground_state': stats[0],
+                'bounded_states': stats[1],
+                'branch_cut': stats[2],
             },
         }

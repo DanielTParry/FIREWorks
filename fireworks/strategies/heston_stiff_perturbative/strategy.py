@@ -25,6 +25,7 @@ class HestonStiffPerturbativeStrategy(AbstractStrategy):
         self,
         market_environment: AbstractHestonMarketEnvironment,
         max_perturbative_order: int = 1,
+        atol: float = 1e-12,
         **kwargs,
     ):
         """
@@ -33,6 +34,7 @@ class HestonStiffPerturbativeStrategy(AbstractStrategy):
         Args:
             market_environment: AbstractHestonMarketEnvironment with all Heston parameters
             max_perturbative_order: Maximum perturbative order (O(1), O(ε), O(ε²), ...)
+            atol: Absolute tolerance for convergence check (default 1e-12)
             **kwargs: Additional arguments (consumption_model, etc.) for interface compatibility
         """
         self.market_environment = market_environment
@@ -41,6 +43,7 @@ class HestonStiffPerturbativeStrategy(AbstractStrategy):
         # Initialize calculator
         self.calculator = HestonStiffPerturbativeCalculator(
             market_env=market_environment,
+            atol=atol,
         )
 
     def simulate(
@@ -78,6 +81,23 @@ class HestonStiffPerturbativeStrategy(AbstractStrategy):
         result["survival_probability"] = 1.0 - result["ruin_probability"]
 
         return result
+
+    def calculate_ruin_probability(self, initial_capital: float,
+                                   annual_withdrawal: float,
+                                   years: float = 30) -> float:
+        """
+        Calculate probability of ruin using perturbative method.
+
+        Args:
+            initial_capital: Starting portfolio value ($)
+            annual_withdrawal: Annual withdrawal amount ($)
+            years: Investment horizon in years (default 30)
+
+        Returns:
+            Probability of ruin (float between 0 and 1)
+        """
+        result = self.simulate(initial_capital, annual_withdrawal, years=years)
+        return result["ruin_probability"]
 
     def get_strategy_name(self) -> str:
         """Return human-readable strategy name."""

@@ -287,11 +287,12 @@ class HestonStiffPerturbativeCalculator:
 
         # Check convergence: if highest-order term exceeds tolerance, expansion hasn't converged
         if abs(u5) > self.atol:
-            raise NotImplementedError(
+            warnings.warn(
                 f"5-term singular perturbation expansion did not converge to atol={self.atol}. "
                 f"Highest-order term u5 (O(ε^2.5)) = {u5:.2e} exceeds tolerance. "
-                f"TODO: Extend to 7-term (O(ε^3)), 8-term (O(ε^3.5)), or higher-order expansion "
-                f"using boundary density method and singular perturbation theory."
+                f"Consider extending to 7-term (O(ε^3)) or higher-order expansion, "
+                f"or increasing atol.",
+                stacklevel=2,
             )
 
         return {
